@@ -33,10 +33,10 @@ const pool = new pg.Pool({
 
 let isDbConnected = false;
 let isDbInitialized = false;
-let dbInitPromise: Promise<void> | null = null;
+let dbInitPromise = null;
 
 // Fallback in-memory stores in case DB is momentarily unavailable
-const fallbackTables: any[] = [
+const fallbackTables = [
   { id: 1, alias: 'SA1', nome: 'Clientes', modulo: 'FAT - Faturamento', descricao: 'Cadastro mestre de clientes e prospectos. Chave: A1_FILIAL + A1_COD + A1_LOJA.' },
   { id: 2, alias: 'SA2', nome: 'Fornecedores', modulo: 'COM - Compras', descricao: 'Cadastro de fornecedores e prestadores de serviço. Chave: A2_FILIAL + A2_COD + A2_LOJA.' },
   { id: 3, alias: 'SB1', nome: 'Descrição Genérica do Produto', modulo: 'EST - Estoque', descricao: 'Cadastro de produtos, matérias-primas e serviços. Chave: B1_FILIAL + B1_COD.' },
@@ -51,7 +51,7 @@ const fallbackTables: any[] = [
   { id: 12, alias: 'SX3', nome: 'Campos do Dicionário', modulo: 'CFG - Configurador', descricao: 'Definição dos campos de todas as tabelas (tamanho, tipo, picture, validações).' }
 ];
 
-const fallbackParameters: any[] = [
+const fallbackParameters = [
   { id: 1, nome: 'MV_ESTNEG', tipo: 'Logico', valor: 'N', finalidade: 'Determina se o Protheus permite movimentação de estoque com saldo negativo (.T. = Permite, .F. ou N = Bloqueia).', modulo: 'EST - Estoque' },
   { id: 2, nome: 'MV_ULMES', tipo: 'data', valor: '31/10/2026', finalidade: 'Data em que ocorreu o último fechamento de estoque mensal no módulo de Estoque/Custos.', modulo: 'EST - Estoque' },
   { id: 3, nome: 'MV_DOCSEAL', tipo: 'Caracter', valor: '2', finalidade: 'Indica a forma de controle de numeração para documentos fiscais eletrônicos NF-e/NFS-e.', modulo: 'FIS - Livros Fiscais' },
@@ -62,7 +62,7 @@ const fallbackParameters: any[] = [
   { id: 8, nome: 'MV_DATAFIN', tipo: 'data', valor: '31/12/2026', finalidade: 'Data limite para operações financeiras no exercício corrente.', modulo: 'FIN - Financeiro' }
 ];
 
-const fallbackHelps: any[] = [
+const fallbackHelps = [
   {
     id: 1,
     nome: 'A410BLOQ',
@@ -167,8 +167,8 @@ export async function initDb() {
     } finally {
       client.release();
     }
-  } catch (err: any) {
-    console.warn('⚠️ Aviso ao conectar ao Neon DB:', err.message);
+  } catch (err) {
+    console.warn('⚠️ Aviso ao conectar ao Neon DB:', err?.message || err);
     console.warn('Operando com armazenamento local ativo.');
     isDbConnected = false;
   }
@@ -184,16 +184,13 @@ async function ensureDb() {
   await dbInitPromise;
 }
 
-// Normalize URL when invoked via Vercel rewrites (?path=...)
+// Normalize URL when invoked via Vercel rewrites (/api?path=...)
 app.use((req, _res, next) => {
-  const queryPath = req.query.path;
-  if (
-    (req.path === '/api' || req.path === '/' || req.path === '/api/index') &&
-    queryPath
-  ) {
+  const queryPath = req.query?.path;
+  if (queryPath) {
     const rawPath = Array.isArray(queryPath) ? queryPath.join('/') : String(queryPath);
-    const cleanSubPath = rawPath.startsWith('/') ? rawPath : `/${rawPath}`;
-    req.url = `/api${cleanSubPath}`;
+    const cleanSubPath = rawPath.replace(/^\/+/, '');
+    req.url = `/api/${cleanSubPath}`;
   }
   next();
 });
@@ -276,8 +273,8 @@ apiRouter.post('/tables', async (req, res) => {
       );
       return res.status(201).json(rows[0]);
     }
-  } catch (err: any) {
-    if (err.code === '23505') {
+  } catch (err) {
+    if (err?.code === '23505') {
       return res.status(409).json({ error: `A tabela com alias ${cleanAlias} já está cadastrada.` });
     }
     console.error(err);
@@ -325,8 +322,8 @@ apiRouter.put('/tables/:id', async (req, res) => {
       }
       return res.json(rows[0]);
     }
-  } catch (err: any) {
-    if (err.code === '23505') {
+  } catch (err) {
+    if (err?.code === '23505') {
       return res.status(409).json({ error: `O alias ${cleanAlias} já está sendo usado em outra tabela.` });
     }
     console.error(err);
@@ -403,8 +400,8 @@ apiRouter.post('/parameters', async (req, res) => {
       );
       return res.status(201).json(rows[0]);
     }
-  } catch (err: any) {
-    if (err.code === '23505') {
+  } catch (err) {
+    if (err?.code === '23505') {
       return res.status(409).json({ error: `O parâmetro ${cleanNome} já está cadastrado.` });
     }
     console.error(err);
@@ -455,8 +452,8 @@ apiRouter.put('/parameters/:id', async (req, res) => {
       }
       return res.json(rows[0]);
     }
-  } catch (err: any) {
-    if (err.code === '23505') {
+  } catch (err) {
+    if (err?.code === '23505') {
       return res.status(409).json({ error: `O nome ${cleanNome} já está em uso por outro parâmetro.` });
     }
     console.error(err);
@@ -625,4 +622,3 @@ app.use('/', apiRouter);
 
 export { apiRouter };
 export default app;
-
